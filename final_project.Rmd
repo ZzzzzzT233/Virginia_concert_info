@@ -1,0 +1,174 @@
+---
+title: "DS 2003 Final Project"
+author: "Tong Zhou"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    theme: united
+    code_folding: hide
+    css: custom.css
+---
+
+More Than a Mere Guide: Everything You Need to Know for Your First Concert Experience in Virginia
+
+---
+```{r, message = FALSE}
+library(tidyverse)
+library(patchwork)
+library(ggmap)
+library(maps)
+library(ggrepel)
+library(forcats)
+```
+## To Start with...
+
+Imagine a world in which you get a fantastic first concert experience that seems tailor-made just for you. It is possible for this dream to come true. For those who have never felt the excitement of live music or are thinking about their first concert, my project offers a guiding light. The goal is to let these decisions easier for people to make and more in line with their personal preferences by exploring how timing, location, and genre affect concert experience.
+
+One may ask, what makes this significant? People typically choose their concerts on a personal basis; they could select the one that they believe will appeal to them the most. But what about people who aren't sure which concert would appeal to them? This predicament is comparable to the "chicken or the egg" conundrum.My aim is to simplify this decision, allowing newcomers to start with the "egg."
+
+## Delving into the Black Box {.tabset}
+
+### Genre
+```{r}
+type_counts = read_csv("dataset/type_counts.csv", show_col_types = FALSE)
+type_counts <- type_counts %>%
+  mutate(Genre = fct_reorder(Genre, Count))
+# Utilize ggplot to draw a lollipop plot that determining the relation between Genre and Count
+# Utilize ggplot to draw a lollipop plot that determining the relation between Genre and Count
+ggplot(type_counts, aes(x = Genre, y = Count)) +
+  geom_segment( aes(x=Genre, xend=Genre, y=0, yend=Count), 
+                color= ifelse(type_counts$Genre %in% c("Rock"),"#d08c60","#797d62"), #Use highlighting color for Genre has the most Count
+              linewidth =ifelse(type_counts$Genre %in% c("Rock"), 4, 2)) + #Use Larger size for Genre has the most Count
+  geom_point( color= ifelse(type_counts$Genre %in% c("Rock"),"#d08c60","#797d62"), #Use highlighting color for Genre has the most Count
+              size=ifelse(type_counts$Genre %in% c("Rock"), 11, 8), alpha=1) + #Use Larger size for Genre has the most Count
+  geom_text(aes(label = Count), hjust = 0.5, color = "#fffd98", size = 3.5) + #Add label for count value
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 2)) +
+  labs(title = "Popularity of Music Genres based on Concert Count",
+       x = "Genre",
+       y = "Count of Concerts", size = 10)+
+  theme_minimal() +
+  theme(
+    # Remove the grids and border
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_blank(),
+    axis.ticks.x = element_blank(),
+    # Adjust the size of the title
+    plot.title = element_text(size = 20, hjust = 2)
+  ) +
+  # Change the graph into horizontal displacement
+  coord_flip()
+```
+
+For first-time concertgoers, the genre of concert they choose can greatly enhance their experience. The distribution of concert genres in Virginia from March 17 to March 30 shows a clear preference for certain types of music. Rock leads with approximately 42 concerts, making it the most prevalent genre during this period. Pop, which is the second most popular, holds about half as many events as rock, illustrating its significant but lesser reach. Indie music follows, with around half the number of pop concerts, indicating a moderate level of interest. The gap between Indie and Country genres is minimal, suggesting a relatively even distribution for these types. Further down the spectrum, genres like R&B and Musical are even less frequent, with Musical having the fewest concerts, just one in the entire two weeks across Virginia. This pattern highlights not only the varied musical preferences across the region but also reflects broader trends in music consumption and popularity.
+
+The relationship between concert genres and mainstream music is a two-way street, heavily influenced by economic factors. Concert genres that attract large audiences tend to become mainstream because they are profitable, which in turn leads to these genres organizing more concerts. Professor Andrew Mall points out that although music is constantly evolving, the mainstream market is still bigger than the niche market (Northeasten Unversity, 2018). Therefore, we may conclude that currently Rock and Pop lead the mainstream music, while genres such as opera, bluegrass and musical may more be considered as less mainstream genres.
+
+For those who want to attend their first concert and haven’t settled on a genre of music, choosing rock or pop may be a safe and enjoyable option. These genres are mainstream, popular, and frequently performed, thus minimizing the chances of disappointment. They are therefore accessible and entertaining choices for first-time concertgoers.
+
+In contrast, opera, bluegrass music, and musical theater represent more niche options. These types of concerts cater to specific tastes and are often performed less frequently in Virginia. It may be especially appealing to those who already have an appreciation for these styles, but for listeners who aren't in this category, it can create a less enjoyable first experience. However, due to the limited number of shows, fans of these niche genres must be proactive when planning their concert experience. With relatively few opportunities to see these shows, checking the schedule early and being prepared to book tickets as soon as they become available is a crucial step.
+
+
+
+### Weekday
+```{r}
+weekday_counts = read_csv("dataset/weekday_counts.csv", show_col_types = FALSE)
+weekday_total_counts = read_csv("dataset/weekday_total_counts.csv", show_col_types = FALSE)
+
+weekday_counts$Weekday <- factor(weekday_counts$Weekday, 
+                                 levels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
+
+weekday_total_counts$Weekday <- factor(weekday_total_counts$Weekday, 
+                                       levels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
+
+# Utilize ggplot to draw a Heat map that determining the relation between Weekday and Count for each genre, store its as g1
+g1 <- ggplot(weekday_counts, aes(x = Weekday, y = Genre, fill = Count)) + 
+  geom_tile() + #Create the heat map
+  scale_fill_gradient(low = "#7f6c34" , high = "#f1dca7") + #Determine the maximum/minimum color
+  labs(x = "Weekday", y = "Genre", fill = "Count") +
+  ggtitle("Concert Frequency by Weekday") + 
+  theme_minimal() +
+  theme(
+    # Adjust the size of the title
+    plot.title = element_text(size = 20, hjust = -0.73))
+
+# Utilize ggplot to draw a Heat map that determining the relation between Weekday and Count for all genres, store its as g2
+g2 <- ggplot(weekday_total_counts, aes(x = Weekday, y = Genre, fill = Count)) + 
+  geom_tile() + #Create the heat map
+  scale_fill_gradient(low = "#797d62", high = "#e8ac65") + #Determine the maximum/minimum color
+  labs(x = "Weekday", y = "Genre", fill = "Count") +
+  theme_minimal() +
+  theme(
+        # Remove title for g2
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.title.y=element_blank())
+
+# Diplay g1 and g2
+g1 / g2
+```
+
+The graph shows the distribution of concerts on weekdays, emphasizing the frequency of concerts on different weekdays. Considering all music categories combined, Fridays are clearly the peak day for concerts, with close to 30, while Mondays are a very different story, with fewer than 10. This pattern was observed over a two-week period from March 17 to March 30, showing that concert lineups in Virginia are sparse especially at the beginning of the week.
+
+The supply and demand of the concert intrinsically affected by these trends. One article delivered in Kiswe reveals the unbalance occurs in Live music. In the article, Azoff Company Chairman/CEO points out that “the current ticketing demand exceeds supply” (King, 2023), in which we may speculate the all the concerts are fully sold out. Considering this, days with a higher number of concerts tend to have more larger audiences, resulting in crowded venues. As a result, for those who limit their concert attendance to weekends, Fridays can be overwhelming due to crowd density. Conversely, for those who enjoy a lively scene, Fridays are ideal. On weekdays, Monday concerts have significantly smaller crowds for those who prefer a quieter environment, while Wednesday is a middle ground that appeals to those who want a large weekday crowd.
+
+Data with music genre shows that rock and pop music concerts fluctuate more during the week. Rock, for example, is particularly prominent on Wednesdays, with lighter shading on the heat map, while Mondays are significantly less active. Opera, however, shows a consistent pattern from Monday to Sunday, suggesting that weekday choices have less of an impact on this music genre. As a result, fans of music genres like rock and pop may need to give more thought to the timing of their concert. In contrast, fans of other music genres such as opera can be more flexible in their scheduling, with weekdays having minimal impact.
+
+
+### Location 
+```{r}
+virginia_map = read_csv("dataset/virginia_map.csv", show_col_types = FALSE)
+locations_with_counts = read_csv("dataset/locations_with_counts.csv", show_col_types = FALSE)
+
+point_colors <- c("Alexandria" = "#6a6f51", "Arlington" = "#6a6f51", "Charlottesville" = "#6a6f51", 
+                  "Fairfax" = "#6a6f51", "Harrisonburg" = "#6a6f51", "Leesburg" = "#6a6f51", 
+                  "Lynchburg" = "#6a6f51", "Newport" = "#6a6f51", "Norfolk" = "#6a6f51", "Roanoke" = "#6a6f51", "V Beach"  = "#6a6f51", "Vienna" = "#6a6f51","Richmond" = "#f77f00")
+
+# Utilize ggplot to draw a bubble map that determining the relation between Location and Count 
+ggplot() +
+  geom_polygon(data = virginia_map, aes(x = long, y = lat, group = group), fill = "#f5f1ed", color = "white") +
+  geom_point(data = locations_with_counts, aes(x = Lon, y = Lat, size = Count, color = Place), alpha = 1) + # Add point into the graph; location is based on longitude and latitude
+  geom_text_repel(
+    #Ensure the data won't overlap each other
+    data = locations_with_counts,
+    aes(x = Lon, y = Lat, label = paste(Place, Count)),
+    size = 4
+  ) +
+  scale_color_manual(values = point_colors) + # Set the colors for each point
+  labs(title = "Location Distribution of Concert",
+       subtitle = "Circle size indicates concert frequency\n Larger circles signify a greater number of concerts held - the largest being shown in orange") +
+  theme_void() +  
+  theme(
+    # Remove all lengends
+    legend.position = "none",
+    # Adjust the size of the title
+    plot.title = element_text(size = 20, hjust = 0.01),
+    plot.subtitle = element_text(hjust = 0.01))
+```
+
+Looking at the distribution of concerts in Virginia from March 17 through March 30, we can figure out how large geographic differences may influence the choices of concertgoers, especially those attending for the first time. Richmond is the leading concert area, hosting 57 events, a number that nearly equaled all other locations in the state combined. This makes Richmond the destination of choice for those looking to experience a wide range of live performances without having to travel from venue to venue. And, because of Richmond's numerical advantage, it offers listeners a convenient choice of dates: audiences can attend the same genre of concert regardless of the Weekday concern.
+
+Compared with it, Virginia Beach, Vienna, and Norfolk each host about a quarter of the number of concerts that Richmond does. For residents who live in this neighborhood and cannot travel to Richmond, these cities also offer opportunities to enjoy live music. Other cities, such as Harrisonburg, Fairfax, and Arlington, host events much less frequently, with only one concert in each city during the analysis period, highlighting the uneven distribution of music events across the state.
+
+Concerts are concentrated in the upper northern and lower eastern regions of Virginia, including the cities of Leesburg, Vienna, Fairfax, Arlington, Alexandria, Newport, Norfolk, and Virginia Beach. This congregation of concerts has benefited residents of these areas by reducing travel time and increasing opportunities to enjoy live music. However, central Virginia, particularly the lower west, has a much smaller number of concerts, which may force music lovers in these areas to travel long distances or miss out on live concert opportunities.
+
+Emerging trends suggest that more concerts will gradually be held in smaller cities over time (Cho et al., 2017). This shift will eventually balance the current concentration of events and provide more opportunities for residents in currently underserved areas to see live performances. This change would be particularly beneficial to residents of the lower areas of western Virginia, who currently have limited opportunities to enjoy live music. Currently, residents in more remote areas may need to plan extensively or travel to other areas in order to participate in live music events. This situation emphasizes the importance of staying informed of local concert schedules and actively planning to attend events.
+
+## What else you need to know
+
+For those who follow my recommendations, they will likely gain a deeper understanding of concert details, increasing their chances of enjoying their first concert. However, it's important to note that while these suggestions are general, there is no guarantee that everyone will have a perfect experience by following them. Additionally, it's necessary to acknowledge that my analysis is rooted in Virginia's concert scene. While the findings offer valuable insights, they may not directly translate to other states or countries. Despite this, certain universal trends in music preferences and concert attendance may still resonate beyond these borders. As the scope of data expands in future research, the hope is to craft even more comprehensive advice that resonates with music lovers everywhere.
+
+The inspiration for this project sprang from a gap I identified while looking at the internet for resources tailored to novice concert attendees. Most sites focus on documenting past concerts or advertising upcoming events, which can leave first-timers feeling overwhelmed and uncertain about where to begin. Recognizing this, I set out to create a guide specifically designed to demystify the concert-going process. My aspiration is that this guidance will transform concerts into welcoming spaces for all, eliminating barriers and fostering a sense of ease and enjoyment for those embarking on their first musical adventure.
+
+
+## Reference
+
+Cho, D., Smith, M. D., & Telang, R. (2017, April). An empirical analysis of the frequency and location. cmu.edu. https://www.cmu.edu/entertainment-analytics/documents/technology-impact-on-entertainment/an-empirical-analysis-of-the-frequency-and-location-of-concerts.pdf 
+
+Defining the mainstream of music with professor Andrew Mall. College of Arts, Media and Design (CAMD). (2018, March 23). https://camd.northeastern.edu/news/defining-the-mainstream-of-music-with-professor-andrew-mall/ 
+
+King, A. (2023, February 24). Irving Azoff Rips secondary ticketing companies. Digital Music News. https://www.digitalmusicnews.com/2023/02/23/irving-azoff-rips-secondary-ticketing-companies/ 
+
