@@ -1,0 +1,195 @@
+---
+title: "Data Processing"
+author: "Tong Zhou"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: '2'
+  html_document:
+    toc: true
+    toc_depth: 2
+    toc_float: true
+    theme: cosmo
+    code_folding: show
+---
+## TOPIC
+- Analyze concert information in Virginia for the upcoming two weeks (March 17th to March 30th).
+
+## DATA
+- The data I collected come from two websites:
+  - [Concert Archives](https://www.concertarchives.org/), where I gathered the concert information.
+  - [LatLong.net](https://www.latlong.net/), where I collected the location information for places in Virginia.
+
+- The data was accessed on March 27th. Concert Archives originally serves to record the history of concerts for singers/bands; LatLong.net is used to search for the longitude and latitude of places.
+
+- I have created four datasets for different visualizations:
+  - The first dataset contains variables 'Genre' and 'Count' to determine the relationship between genre and concert frequency.
+  
+  Genre    | Count  
+  :------: | :-----: 
+  Rock     | 42  
+  
+  - The second dataset contains variables 'Genre', 'Count', and 'Weekday' to analyze the relationship between weekdays and concert frequency for each genre.
+  
+  Weekday    | Genre  | Count 
+  :------: | :-----:  | :-----: 
+  Sunday     | Folk  | 1
+
+  - The third dataset also includes 'Genre', 'Count', and 'Weekday' but is used to analyze the overall relationship between weekdays and concert frequency across all genres. Here, the 'Genre' variable does not hold meaningful value, primarily for creating a heatmap
+
+  Weekday    | Genre    | Count 
+  :------:   | :-----:  | :-----: 
+  Sunday     | All genres  | 20
+
+  - The fourth dataset contains variables 'Place', 'Count', 'Lon', and 'Lat' to examine the relationship between location and concert frequency.
+
+  Place    | Count  | Lon     |  Lat
+  :------: | :-----:| :-----: | :-----: 
+  Alexandria  | 5  | -77.0 | 38.8
+  
+
+  
+ 
+### Load packages
+
+```{r, message = FALSE}
+library(tidyverse)
+library(patchwork)
+library(ggmap)
+library(maps)
+library(ggrepel)
+```
+
+### Read in data  
+
+```{r}
+# Read in the concert_data using read_csv
+concert_raw = read_csv("con_infor.csv",show_col_types = FALSE)
+head(concert_raw)
+
+# Add longitude and latitude value for places included
+lon_values <- c(-77.0469, -77.1073, -78.4767, -77.3064, -78.8597,
+                -77.5636, -79.1423, -76.5280, -76.2859, -77.4360,
+                -79.9414, -75.9779, -77.2653)  
+
+lat_values <- c(38.8048, 38.8816, 38.0293, 38.8462, 38.4496,
+                39.1157, 37.4138, 36.9784, 36.8508, 37.5407,
+                37.2707, 36.8529, 38.9012)  
+```
+
+### Review/clean datasets
+
+* conduct data cleaning processes
+* provide code analyzing the structure and layout of datasets
+```{r}
+# Separate rows with more than one genres
+con_gen_sep <- concert_raw %>%
+  separate_rows(Genre, sep = "/")
+
+head(con_gen_sep)
+
+```
+
+```{r}
+# Add Weekday and parse the format for existing date as day-month-year
+con_clean <- con_gen_sep %>%
+  mutate(Date = paste(Day, Month, year(Sys.Date()), sep = " "),  
+         Date = dmy(Date))%>%   
+         mutate(Weekday = weekdays(Date))%>%
+         select(-c(Day,Month, Year))
+
+head(con_clean)
+```
+
+```{r}
+# Create dataset type_counts for determining the relationship between Genre and Count
+type_counts <- con_clean %>%
+  group_by(Genre) %>%
+  summarize(Count = n())%>%
+  arrange(desc(Count))
+
+# Reorder type_counts in descending order based on Count
+type_counts$Genre <- factor(type_counts$Genre, levels = type_counts$Genre[order(type_counts$Count)])
+
+head(type_counts)
+write_csv(type_counts, "type_counts.csv")
+```
+
+```{r}
+# Create variable weekdays_ordered to determine the order of weekday
+weekdays_ordered <- c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
+
+# Create a complete grid with all combinations of Weekday and Genre 
+complete_grid <- expand_grid(Weekday = weekdays_ordered,
+                             Genre = unique(con_clean$Genre))
+
+# Create dataset weekday_counts for determining the relationship between Weekday and Count for each genre
+weekday_counts <- con_clean %>%
+  group_by(Weekday, Genre) %>%
+  summarize(Count = n(), .groups = 'drop')
+
+# Ensure dataset includes all weekday value for all genre by replacing NAs with 0
+weekday_counts <- complete_grid %>%
+  left_join(weekday_counts, by = c("Weekday", "Genre")) %>%
+  replace_na(list(Count = 0))
+
+# Reorder type_counts based on weekdays_ordered
+weekday_counts$Weekday <- factor(weekday_counts$Weekday, levels = weekdays_ordered)
+
+head(weekday_counts)
+write_csv(weekday_counts, "weekday_counts.csv")
+```
+
+```{r}
+# Create dataset weekday_total_counts for determining the relationship between Weekday and Count for genre in total
+weekday_total_counts <- con_clean %>%
+  group_by(Weekday) %>%
+  summarize(TotalCount = n(), .groups = 'drop')
+
+
+# Create data frame single_genre that has a single Genre value to aggregating all genres later
+single_genre <- tibble(
+  Weekday = weekdays_ordered,
+  Genre = "All Genres",
+  Count = 0
+)
+
+# Merge single_genre into weekday_total_counts
+weekday_total_counts <- single_genre %>%
+  left_join(weekday_total_counts, by = "Weekday") %>%
+  mutate(Count = ifelse(is.na(TotalCount), 0, TotalCount)) %>%
+  select(-TotalCount)
+
+# Reorder type_counts based on weekdays_ordered
+weekday_total_counts$Weekday <- factor(weekday_total_counts$Weekday, levels = weekdays_ordered)
+
+head(weekday_total_counts)
+write_csv(weekday_total_counts, "weekday_total_counts.csv")
+```
+
+```{r}
+# Create dataset locations_with_counts for determining the relationship between Location and Count 
+locations_with_counts <- con_clean %>%
+  group_by(Place) %>%
+  summarize(Count = n())
+
+# Add variable Lon and Lat into locations_with_counts
+locations_with_counts <- locations_with_counts%>%
+  mutate(Lon = lon_values,
+         Lat = lat_values)
+
+# Set the colors for points
+point_colors <- c("Alexandria" = "#6a6f51", "Arlington" = "#6a6f51", "Charlottesville" = "#6a6f51", 
+                  "Fairfax" = "#6a6f51", "Harrisonburg" = "#6a6f51", "Leesburg" = "#6a6f51", 
+                  "Lynchburg" = "#6a6f51", "Newport" = "#6a6f51", "Norfolk" = "#6a6f51", "Roanoke" = "#6a6f51", "V Beach"  = "#6a6f51", "Vienna" = "#6a6f51","Richmond" = "#f77f00")
+
+
+# Get the map data for Virginia
+virginia_map <- map_data("state", region = "virginia")
+write_csv(virginia_map, "virginia_map.csv")
+
+head(locations_with_counts)
+write_csv(locations_with_counts, "locations_with_counts.csv")
+```
+
